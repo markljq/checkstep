@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>Check Step · 进度图排版方案预览</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 32px 80px;background:#141416;color:#EDEDED;
+    font:14px/1.6 "Segoe UI","Microsoft YaHei","PingFang SC",sans-serif}
+  h1{font-size:20px;margin:0 0 6px;font-weight:600}
+  .lead{color:#9A9A9A;font-size:13px;margin:0 0 22px}
+  .nav{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap}
+  .nav a{color:#EDEDED;text-decoration:none;background:#232326;border:1px solid #333;
+    padding:6px 14px;border-radius:8px;font-size:13px}
+  .nav a:hover{border-color:#4CC2FF;color:#4CC2FF}
+  section{margin-bottom:44px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .sec-head h2{font-size:16px;margin:0;font-weight:600}
+  .tag{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(76,194,255,.14);color:#4CC2FF}
+  .desc{color:#9A9A9A;font-size:12.5px;margin:0 0 16px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:1100px){.pair{grid-template-columns:1fr}}
+  .panel{border:1px solid #2C2C2F;border-radius:12px;overflow:hidden;background:#1A1A1D}
+  .panel .cap{padding:8px 14px;font-size:12px;color:#9A9A9A;border-bottom:1px solid #2C2C2F;
+    display:flex;align-items:center;gap:8px}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .panel .box{padding:14px;display:flex;justify-content:center}
+  .panel svg{display:block;width:100%;height:auto;border-radius:8px}
+  .note{margin-top:34px;padding:16px 18px;border-radius:12px;background:#1E1E21;border:1px solid #2E2E32;
+    color:#B9B9B9;font-size:13px}
+  .note b{color:#EDEDED}
+</style>
+</head>
+<body>
+<h1>进度时间线图 · 排版方案</h1>
+<p class="lead">三种排版方向，各自展示浅色 / 深色两版。配色跟随主题色，数据为示例（26 个执行项，已完成 13 个）。</p>
+<div class="nav">
+  <a href="#a">方案 A · 鱼骨进度轴</a>
+  <a href="#b">方案 B · 蛇形卡片链（超长向下弯折）</a>
+  <a href="#c">方案 C · 纵向里程碑卡</a>
+</div>
+<div id="root"></div>
+<div class="note">
+  <b>关于「向下弯曲」：</b>方案 B 专门处理里程碑很多的情况——横向排满 4 个里程碑后，
+  连接线在右侧向下弯折成 U 形，第二行反向继续延伸，再长就继续向下折叠，画布不会无限变宽。
+  方案 A 适合 3–5 个里程碑的横向总览；方案 C 是竖向排布，天然适合里程碑和执行项都多的场景（也最适合手机竖屏查看）。
+</div>
+<script>
+const FONT = 'Segoe UI, Microsoft YaHei, PingFang SC, sans-serif'
+
+const T = {
+  light: {
+    wash: '#F6F8FB', card: '#FFFFFF', cardStroke: '#E6EAF1',
+    text: '#17191D', text2: '#5A616B', text3: '#98A0AA',
+    line: '#E8ECF2', axis: '#DCE1E8', chip: '#F2F5F9',
+    doneSoft: '#EAF3FE', doneStroke: '#C7E0FB', hdrA: 0.10
+  },
+  dark: {
+    wash: '#1B1C1E', card: '#24262A', cardStroke: '#36393F',
+    text: '#F2F3F5', text2: '#B7BCC4', text3: '#7D838C',
+    line: '#33363B', axis: '#3E4248', chip: '#2C2F34',
+    doneSoft: 'rgba(76,194,255,0.15)', doneStroke: 'rgba(76,194,255,0.45)', hdrA: 0.13
+  }
+}
+const ACC = { light: '#0F6CBD', dark: '#4CC2FF' }
+const ON = { light: '#FFFFFF', dark: '#06202B' }
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+const statsOf = (g) => {
+  const total = g.reduce((s, x) => s + x.tasks.length, 0)
+  const done = g.reduce((s, x) => s + x.tasks.filter((t) => t.d).length, 0)
+  return { total, done, pct: total ? Math.round((done / total) * 100) : 0 }
+}
+const curIdx = (g) => g.findIndex((x) => x.tasks.some((t) => !t.d))
+
+const P = { name: '支付网关 v2.3 上线', time: '2026-11-03 19:05' }
+const ALL = [
+  { name: '需求与评审', tasks: [{ t: '需求澄清会', d: true }, { t: '技术方案评审', d: true }, { t: '接口契约确认', d: true }] },
+  { name: '环境准备', tasks: [{ t: '申请预发环境', d: true }, { t: '数据库实例开通', d: true }, { t: '配置中心接入', d: true }, { t: '证书与域名备案', d: true }] },
+  { name: '数据迁移', tasks: [{ t: '历史订单清洗', d: true }, { t: '迁移脚本演练', d: true }, { t: '全量数据迁移', d: true }, { t: '一致性校验', d: true }, { t: '回滚预案验证', d: true }] },
+  { name: '功能上线', tasks: [{ t: '灰度白名单配置', d: true }, { t: '核心链路联调', d: false }, { t: '风控规则生效', d: false }] },
+  { name: '回归验证', tasks: [{ t: '主流程回归', d: false }, { t: '异常分支回归', d: false }, { t: '性能压测', d: false }, { t: '安全扫描', d: false }] },
+  { name: '灰度发布', tasks: [{ t: '5% 流量灰度', d: false }, { t: '监控告警确认', d: false }] },
+  { name: '全量发布', tasks: [{ t: '全量切流', d: false }, { t: '线上冒烟', d: false }, { t: '公告与通知', d: false }] },
+  { name: '收尾复盘', tasks: [{ t: '问题清单归档', d: false }, { t: '复盘会议', d: false }] }
+]
+
+/* ---------------- 共用：标题 + 进度条 ---------------- */
+function headerBlock(o) {
+  const { W, M, th, accent, s, uid } = o
+  const out = []
+  out.push(`<defs><linearGradient id="hg${uid}" x1="0" y1="0" x2="1" y2="0">` +
+    `<stop offset="0" stop-color="${accent}" stop-opacity="${th.hdrA}"/>` +
+    `<stop offset="0.75" stop-color="${accent}" stop-opacity="0"/></linearGradient></defs>`)
+  out.push(`<rect x="0" y="0" width="${W}" height="122" fill="url(#hg${uid})"/>`)
+  out.push(`<text x="${M}" y="60" font-size="23" font-weight="700" fill="${th.text}">${esc(trunc(P.name, 22))}</text>`)
+  out.push(`<text x="${M}" y="86" font-size="12.5" fill="${th.text3}">${esc(o.subtitle)}</text>`)
+  out.push(`<text x="${W - M}" y="62" text-anchor="end" font-size="34" font-weight="700" fill="${accent}">${s.pct}%</text>`)
+  out.push(`<text x="${W - M}" y="86" text-anchor="end" font-size="12" fill="${th.text3}">已完成 ${s.done} / ${s.total} 项</text>`)
+  out.push(`<rect x="${M}" y="102" width="${W - 2 * M}" height="6" rx="3" fill="${th.axis}"/>`)
+  out.push(`<rect x="${M}" y="102" width="${Math.max(6, ((W - 2 * M) * s.pct) / 100)}" height="6" rx="3" fill="${accent}"/>`)
+  return out
+}
+
+function checkPath(x, y, r, color) {
+  return `<path d="M${x - r * 0.45} ${y} L${x - r * 0.1} ${y + r * 0.38} L${x + r * 0.5} ${y - r * 0.38}" ` +
+    `fill="none" stroke="${color}" stroke-width="${(r * 0.42).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`
+}
+
+/* ---------------- 方案 A：鱼骨进度轴 ---------------- */
+function buildA(groups, tk) {
+  const th = T[tk], accent = ACC[tk], on = ON[tk]
+  const M = 56, startX = 92, spacing = 288, pillW = 200, pillH = 34, pitch = 44
+  const s = statsOf(groups), ci = curIdx(groups)
+  const maxT = Math.max(1, ...groups.map((g) => g.tasks.length))
+  const axisY = 258
+  const W = startX + (groups.length - 1) * spacing + 18 + pillW + M + 18
+  const H = axisY + 40 + (maxT - 1) * pitch + pillH + 56
+  const out = []
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`)
+  out.push(`<rect width="${W}" height="${H}" fill="${th.wash}"/>`)
+  out.push(...headerBlock({ W, M, th, accent, s, uid: 'a' + tk, subtitle: `${groups.length} 个里程碑 · ${s.total} 个执行项 · 生成于 ${P.time}` }))
+
+  const axisEnd = W - M - 10
+  const axisStart = startX - 34
+  out.push(`<line x1="${axisStart}" y1="${axisY}" x2="${axisEnd}" y2="${axisY}" stroke="${th.axis}" stroke-width="3" stroke-linecap="round"/>`)
+  const doneEnd = ci < 0 ? axisEnd : startX + ci * spacing
+  out.push(`<line x1="${axisStart}" y1="${axisY}" x2="${doneEnd}" y2="${axisY}" stroke="${accent}" stroke-width="3" stroke-linecap="round"/>`)
+  out.push(`<path d="M${axisEnd - 3} ${axisY - 7} L${axisEnd + 9} ${axisY} L${axisEnd - 3} ${axisY + 7}" fill="none" stroke="${th.axis}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`)
+
+  groups.forEach((g, i) => {
+    const nx = startX + i * spacing
+    const d = g.tasks.filter((t) => t.d).length
+    const full = g.tasks.length > 0 && d === g.tasks.length
+    const isCur = i === ci
+    const cx = nx + 18 + pillW / 2
+
+    // 里程碑名称 + 计数（轴上方）
+    out.push(`<text x="${cx}" y="${axisY - 56}" text-anchor="middle" font-size="15" font-weight="600" fill="${th.text}">${esc(trunc(g.name, 8))}</text>`)
+    out.push(`<text x="${cx}" y="${axisY - 36}" text-anchor="middle" font-size="11.5" fill="${full ? accent : th.text3}">${d}/${g.tasks.length} 项</text>`)
+
+    // 连接竖线
+    if (g.tasks.length) {
+      const cyLast = axisY + 40 + (g.tasks.length - 1) * pitch + pillH / 2
+      out.push(`<line x1="${nx}" y1="${axisY + 15}" x2="${nx}" y2="${cyLast}" stroke="${th.axis}" stroke-width="2" stroke-linecap="round"/>`)
+    }
+
+    // 任务胶囊
+    g.tasks.forEach((t, k) => {
+      const top = axisY + 40 + k * pitch
+      const cy = top + pillH / 2
+      const px = nx + 18
+      out.push(`<line x1="${nx}" y1="${cy}" x2="${px}" y2="${cy}" stroke="${th.axis}" stroke-width="2"/>`)
+      if (t.d) {
+        out.push(`<rect x="${px}" y="${top}" width="${pillW}" height="${pillH}" rx="10" fill="${th.doneSoft}" stroke="${th.doneStroke}" stroke-width="1"/>`)
+        out.push(`<circle cx="${px + 18}" cy="${cy}" r="8" fill="${accent}"/>`)
+        out.push(checkPath(px + 18, cy, 8, on))
+        out.push(`<text x="${px + 34}" y="${cy + 4.5}" font-size="12.5" font-weight="600" fill="${th.text}">${esc(trunc(t.t, 10))}</text>`)
+      } else {
+        out.push(`<rect x="${px}" y="${top}" width="${pillW}" height="${pillH}" rx="10" fill="${th.card}" stroke="${th.cardStroke}" stroke-width="1" stroke-dasharray="4 4"/>`)
+        out.push(`<circle cx="${px + 18}" cy="${cy}" r="7" fill="none" stroke="${th.text3}" stroke-width="1.6"/>`)
+        out.push(`<text x="${px + 34}" y="${cy + 4.5}" font-size="12.5" fill="${th.text2}">${esc(trunc(t.t, 10))}</text>`)
+      }
+    })
+
+    // 轴上节点
+    if (isCur) {
+      out.push(`<circle cx="${nx}" cy="${axisY}" r="24" fill="${accent}" opacity="0.14"/>`)
+      out.push(`<circle cx="${nx}" cy="${axisY}" r="15" fill="${th.wash}" stroke="${accent}" stroke-width="3"/>`)
+      out.push(`<text x="${nx}" y="${axisY + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="${accent}">${i + 1}</text>`)
+    } else if (full) {
+      out.push(`<circle cx="${nx}" cy="${axisY}" r="15" fill="${accent}"/>`)
+      out.push(checkPath(nx, axisY, 15, on))
+    } else {
+      out.push(`<circle cx="${nx}" cy="${axisY}" r="15" fill="${th.card}" stroke="${th.axis}" stroke-width="2.5"/>`)
+      out.push(`<text x="${nx}" y="${axisY + 5}" text-anchor="middle" font-size="13" font-weight="600" fill="${th.text3}">${i + 1}</text>`)
+    }
+  })
+
+  // 图例
+  const ly = H - 26
+  out.push(`<circle cx="${M + 7}" cy="${ly - 4}" r="7" fill="${accent}"/>`)
+  out.push(checkPath(M + 7, ly - 4, 7, on))
+  out.push(`<text x="${M + 22}" y="${ly}" font-size="12" fill="${th.text2}">已完成</text>`)
+  out.push(`<circle cx="${M + 92}" cy="${ly - 4}" r="6.2" fill="none" stroke="${th.text3}" stroke-width="1.6"/>`)
+  out.push(`<text x="${M + 106}" y="${ly}" font-size="12" fill="${th.text2}">未执行</text>`)
+  out.push(`<circle cx="${M + 172}" cy="${ly - 4}" r="7" fill="none" stroke="${accent}" stroke-width="3"/>`)
+  out.push(`<text x="${M + 186}" y="${ly}" font-size="12" fill="${th.text2}">当前进度</text>`)
+  out.push('</svg>')
+  return out.join('\n')
+}
+
+/* ---------------- 方案 B：蛇形卡片链 ---------------- */
+function buildB(groups, tk) {
+  const th = T[tk], accent = ACC[tk], on = ON[tk]
+  const M = 56, CW = 230, GAP = 56, PER = 4
+  const W = M * 2 + PER * CW + (PER - 1) * GAP + 48
+  const s = statsOf(groups), ci = curIdx(groups)
+
+  const measureRow = (list) => Math.max(...list.map((g) => {
+    const shown = Math.min(4, g.tasks.length)
+    return 62 + shown * 28 + (g.tasks.length > shown ? 22 : 0) + 10
+  }))
+
+  // 布局：行内蛇形，行末向下弯折
+  const rows = []
+  for (let i = 0; i < groups.length; i += PER) rows.push(groups.slice(i, i + PER))
+  const rowTop = []
+  let y = 172
+  rows.forEach((r) => { rowTop.push(y); y += measureRow(r) + 128 })
+  const H = rowTop[rowTop.length - 1] + measureRow(rows[rows.length - 1]) + 56
+
+  const layout = groups.map((g, i) => {
+    const row = Math.floor(i / PER), col = i % PER
+    const x = row % 2 === 0 ? M + col * (CW + GAP) : M + (PER - 1 - col) * (CW + GAP)
+    const shown = Math.min(4, g.tasks.length)
+    const h = 62 + shown * 28 + (g.tasks.length > shown ? 22 : 0) + 10
+    return { row, x, y: rowTop[row], h }
+  })
+
+  const out = []
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`)
+  out.push(`<rect width="${W}" height="${H}" fill="${th.wash}"/>`)
+  out.push(...headerBlock({ W, M, th, accent, s, uid: 'b' + tk, subtitle: `${groups.length} 个里程碑 · ${s.total} 个执行项 · 生成于 ${P.time}` }))
+
+  // 连线（先画，压在卡片下面）
+  for (let i = 0; i < layout.length - 1; i++) {
+    const a = layout[i], b = layout[i + 1]
+    const g = groups[i]
+    const linkDone = g.tasks.length > 0 && g.tasks.every((t) => t.d)
+    const stroke = linkDone ? accent : th.axis
+    const dash = linkDone ? '' : ' stroke-dasharray="6 7"'
+    if (a.row === b.row) {
+      const yy = a.y + 38
+      const right = b.x > a.x
+      const x1 = right ? a.x + CW : a.x
+      const x2 = right ? b.x : b.x + CW
+      const c1 = x1 + (right ? 22 : -22), c2 = x2 - (right ? 22 : -22)
+      out.push(`<path d="M${x1} ${yy} C${c1} ${yy} ${c2} ${yy} ${x2} ${yy}" fill="none" stroke="${stroke}" stroke-width="2"${dash}/>`)
+      const d = right ? 1 : -1
+      out.push(`<path d="M${x2 - d * 10} ${yy - 5} L${x2 - d * 2} ${yy} L${x2 - d * 10} ${yy + 5}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
+    } else {
+      const bulge = a.row % 2 === 0 ? 88 : -88
+      const xa = a.x + CW / 2, xb = b.x + CW / 2
+      const ya = a.y + a.h, yb = b.y
+      out.push(`<path d="M${xa} ${ya} C${xa + bulge} ${ya + 44} ${xb + bulge} ${yb - 44} ${xb} ${yb}" fill="none" stroke="${stroke}" stroke-width="2"${dash}/>`)
+      out.push(`<path d="M${xb - 5} ${yb + 10} L${xb} ${yb + 2} L${xb + 5} ${yb + 10}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`)
+    }
+  }
+
+  // 卡片
+  groups.forEach((g, i) => {
+    const { x, y, h } = layout[i]
+    const d = g.tasks.filter((t) => t.d).length
+    const full = d === g.tasks.length && g.tasks.length > 0
+    const isCur = i === ci
+    const inner = CW - 28
+    out.push(`<rect x="${x}" y="${y}" width="${CW}" height="${h}" rx="14" fill="${th.card}" stroke="${isCur ? accent : th.cardStroke}" stroke-width="${isCur ? 1.8 : 1}"/>`)
+
+    // 序号徽章
+    out.push(`<rect x="${x + 14}" y="${y + 14}" width="24" height="24" rx="8" fill="${isCur ? accent : th.chip}"/>`)
+    out.push(`<text x="${x + 26}" y="${y + 30}" text-anchor="middle" font-size="12" font-weight="700" fill="${isCur ? on : th.text2}">${i + 1}</text>`)
+    out.push(`<text x="${x + 46}" y="${y + 31}" font-size="13.5" font-weight="600" fill="${th.text}">${esc(trunc(g.name, 7))}</text>`)
+    out.push(`<text x="${x + CW - 14}" y="${y + 31}" text-anchor="end" font-size="11.5" fill="${full ? accent : th.text3}">${d}/${g.tasks.length}</text>`)
+
+    // 进度条
+    out.push(`<rect x="${x + 14}" y="${y + 47}" width="${inner}" height="4" rx="2" fill="${th.axis}"/>`)
+    if (d > 0) out.push(`<rect x="${x + 14}" y="${y + 47}" width="${Math.max(4, (inner * d) / Math.max(1, g.tasks.length))}" height="4" rx="2" fill="${accent}"/>`)
+    out.push(`<line x1="${x + 14}" y1="${y + 60}" x2="${x + CW - 14}" y2="${y + 60}" stroke="${th.line}" stroke-width="1"/>`)
+
+    // 任务行（最多 4 条）
+    const shown = Math.min(4, g.tasks.length)
+    g.tasks.slice(0, shown).forEach((t, k) => {
+      const cy = y + 62 + 16 + k * 28
+      if (t.d) {
+        out.push(`<circle cx="${x + 21}" cy="${cy}" r="7" fill="${accent}"/>`)
+        out.push(checkPath(x + 21, cy, 7, on))
+        out.push(`<text x="${x + 34}" y="${cy + 4}" font-size="12" fill="${th.text2}">${esc(trunc(t.t, 11))}</text>`)
+      } else {
+        out.push(`<circle cx="${x + 21}" cy="${cy}" r="6.2" fill="none" stroke="${th.text3}" stroke-width="1.5"/>`)
+        out.push(`<text x="${x + 34}" y="${cy + 4}" font-size="12" fill="${th.text3}">${esc(trunc(t.t, 11))}</text>`)
+      }
+    })
+    if (g.tasks.length > shown) {
+      out.push(`<text x="${x + 34}" y="${y + 62 + 16 + shown * 28 + 3}" font-size="11.5" fill="${th.text3}">还有 ${g.tasks.length - shown} 项</text>`)
+    }
+  })
+
+  // 图例
+  const ly = H - 26
+  out.push(`<circle cx="${M + 7}" cy="${ly - 4}" r="7" fill="${accent}"/>`)
+  out.push(checkPath(M + 7, ly - 4, 7, on))
+  out.push(`<text x="${M + 22}" y="${ly}" font-size="12" fill="${th.text2}">已完成</text>`)
+  out.push(`<circle cx="${M + 92}" cy="${ly - 4}" r="6.2" fill="none" stroke="${th.text3}" stroke-width="1.5"/>`)
+  out.push(`<text x="${M + 106}" y="${ly}" font-size="12" fill="${th.text2}">未执行</text>`)
+  out.push(`<text x="${W - M}" y="${ly}" text-anchor="end" font-size="12" fill="${th.text3}">按里程碑顺序 · 满行自动向下弯折</text>`)
+  out.push('</svg>')
+  return out.join('\n')
+}
+
+/* ---------------- 方案 C：纵向里程碑卡 ---------------- */
+const estW = (s) => {
+  let w = 0
+  for (const ch of s) w += ch.charCodeAt(0) > 255 ? 12 : 6.8
+  return w
+}
+
+function buildC(groups, tk) {
+  const th = T[tk], accent = ACC[tk], on = ON[tk]
+  const M = 56, W = 960, axisX = 104, cardX = 134
+  const cardW = W - M - cardX
+  const innerW = cardW - 32
+  const s = statsOf(groups), ci = curIdx(groups)
+
+  // 先把每个分组的 chip 行排好
+  const laid = groups.map((g) => {
+    const rows = [[]]
+    let x = 0
+    g.tasks.forEach((t) => {
+      const label = trunc(t.t, 14)
+      const w = 30 + estW(label)
+      if (x + w > innerW && rows[rows.length - 1].length) { rows.push([]); x = 0 }
+      rows[rows.length - 1].push({ label, w, done: t.d })
+      x += w + 8
+    })
+    const rowCount = Math.max(1, rows.length)
+    return { rows, rowCount, h: 46 + rowCount * 34 + 6 }
+  })
+
+  let y = 172
+  const tops = laid.map((l) => { const t = y; y += l.h + 16; return t })
+  const H = y + 34
+
+  const out = []
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`)
+  out.push(`<rect width="${W}" height="${H}" fill="${th.wash}"/>`)
+  out.push(...headerBlock({ W, M, th, accent, s, uid: 'c' + tk, subtitle: `${groups.length} 个里程碑 · ${s.total} 个执行项 · 生成于 ${P.time}` }))
+
+  const firstY = tops[0] + 26
+  const lastY = tops[tops.length - 1] + 26
+  const curY = ci >= 0 ? tops[ci] + 26 : lastY
+  out.push(`<line x1="${axisX}" y1="${firstY}" x2="${axisX}" y2="${lastY}" stroke="${th.axis}" stroke-width="2.5" stroke-linecap="round"/>`)
+  out.push(`<line x1="${axisX}" y1="${firstY}" x2="${axisX}" y2="${curY}" stroke="${accent}" stroke-width="2.5" stroke-linecap="round"/>`)
+
+  groups.forEach((g, i) => {
+    const card = laid[i], cy = tops[i]
+    const d = g.tasks.filter((t) => t.d).length
+    const full = d === g.tasks.length && g.tasks.length > 0
+    const isCur = i === ci
+
+    out.push(`<rect x="${cardX}" y="${cy}" width="${cardW}" height="${card.h}" rx="14" fill="${th.card}" stroke="${isCur ? accent : th.cardStroke}" stroke-width="${isCur ? 1.8 : 1}"/>`)
+    out.push(`<text x="${cardX + 16}" y="${cy + 28}" font-size="14.5" font-weight="600" fill="${th.text}">${esc(trunc(g.name, 12))}</text>`)
+    out.push(`<text x="${cardX + cardW - 16}" y="${cy + 28}" text-anchor="end" font-size="12" fill="${full ? accent : th.text3}">${d}/${g.tasks.length} 项</text>`)
+
+    card.rows.forEach((row, r) => {
+      let x = cardX + 16
+      const top = cy + 44 + r * 34
+      row.forEach((c) => {
+        if (c.done) {
+          out.push(`<rect x="${x}" y="${top}" width="${c.w}" height="26" rx="13" fill="${th.doneSoft}" stroke="${th.doneStroke}" stroke-width="1"/>`)
+          out.push(`<circle cx="${x + 13}" cy="${top + 13}" r="5.2" fill="${accent}"/>`)
+          out.push(checkPath(x + 13, top + 13, 5.2, on))
+          out.push(`<text x="${x + 23}" y="${top + 17.5}" font-size="12" font-weight="500" fill="${th.text}">${esc(c.label)}</text>`)
+        } else {
+          out.push(`<rect x="${x}" y="${top}" width="${c.w}" height="26" rx="13" fill="${th.chip}" stroke="${th.cardStroke}" stroke-width="1"/>`)
+          out.push(`<circle cx="${x + 13}" cy="${top + 13}" r="4.6" fill="none" stroke="${th.text3}" stroke-width="1.5"/>`)
+          out.push(`<text x="${x + 23}" y="${top + 17.5}" font-size="12" fill="${th.text2}">${esc(c.label)}</text>`)
+        }
+        x += c.w + 8
+      })
+    })
+
+    // 轴节点
+    if (isCur) {
+      out.push(`<circle cx="${axisX}" cy="${cy + 26}" r="18" fill="${accent}" opacity="0.14"/>`)
+      out.push(`<circle cx="${axisX}" cy="${cy + 26}" r="11" fill="${th.wash}" stroke="${accent}" stroke-width="3"/>`)
+      out.push(`<text x="${axisX}" y="${cy + 30}" text-anchor="middle" font-size="11" font-weight="700" fill="${accent}">${i + 1}</text>`)
+    } else if (full) {
+      out.push(`<circle cx="${axisX}" cy="${cy + 26}" r="11" fill="${accent}"/>`)
+      out.push(checkPath(axisX, cy + 26, 11, on))
+    } else {
+      out.push(`<circle cx="${axisX}" cy="${cy + 26}" r="11" fill="${th.card}" stroke="${th.axis}" stroke-width="2.5"/>`)
+      out.push(`<text x="${axisX}" y="${cy + 30}" text-anchor="middle" font-size="11" font-weight="600" fill="${th.text3}">${i + 1}</text>`)
+    }
+  })
+
+  out.push('</svg>')
+  return out.join('\n')
+}
+
+/* ---------------- 渲染页面 ---------------- */
+const sections = [
+  { id: 'a', title: '方案 A · 鱼骨进度轴', tag: '横向总览', desc: '主轴按时序推进，每个里程碑向下垂挂执行项胶囊。已完成填充主题色，未完成虚线描边，当前进度节点带光晕。适合 3–5 个里程碑。', build: buildA, groups: ALL.slice(0, 4) },
+  { id: 'b', title: '方案 B · 蛇形卡片链', tag: '超长自动弯折', desc: '每个里程碑是一张卡片，横向排满 4 个后在右侧向下弯折，换行反向继续。进度连线已完成段为主题色实线、未完成段为虚线。适合里程碑数量多的长项目。', build: buildB, groups: ALL },
+  { id: 'c', title: '方案 C · 纵向里程碑卡', tag: '竖版易分享', desc: '竖向时间轴，里程碑卡片纵向排列，卡片内执行项以胶囊自动换行。竖版比例最适合手机查看与转发，里程碑再多也不会横向溢出。', build: buildC, groups: ALL }
+]
+
+const root = document.getElementById('root')
+sections.forEach((sec) => {
+  const el = document.createElement('section')
+  el.id = sec.id
+  const h = document.createElement('div')
+  h.className = 'sec-head'
+  h.innerHTML = `<h2>${sec.title}</h2><span class="tag">${sec.tag}</span>`
+  const p = document.createElement('p')
+  p.className = 'desc'
+  p.textContent = sec.desc
+  const pair = document.createElement('div')
+  pair.className = 'pair'
+  ;['light', 'dark'].forEach((tk) => {
+    const panel = document.createElement('div')
+    panel.className = 'panel'
+    const cap = document.createElement('div')
+    cap.className = 'cap'
+    cap.innerHTML = `<span class="dot" style="background:${tk === 'light' ? '#F6F8FB;border:1px solid #D8DEE7' : '#1B1C1E;border:1px solid #3A3D42'}"></span>${tk === 'light' ? '浅色主题' : '深色主题'}`
+    const box = document.createElement('div')
+    box.className = 'box'
+    box.innerHTML = sec.build(sec.groups, tk)
+    panel.append(cap, box)
+    pair.appendChild(panel)
+  })
+  el.append(h, p, pair)
+  root.appendChild(el)
+})
+</script>
+</body>
+</html>

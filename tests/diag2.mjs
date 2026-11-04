@@ -1,0 +1,38 @@
+import { _electron as electron } from 'playwright-core'
+import { createRequire } from 'module'
+import { mkdtempSync, readFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+const require = createRequire(import.meta.url)
+const userData = mkdtempSync(join(tmpdir(), 'cs-diag2-'))
+const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE
+const app = await electron.launch({ args: ['.', `--user-data-dir=${userData}`], cwd: process.cwd(), executablePath: require('electron'), env })
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+const page = await app.firstWindow()
+await page.bringToFront()
+await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.setAlwaysOnTop(true); w.show(); w.focus() })
+await page.waitForSelector('.task')
+await sleep(700)
+await page.locator('.mode-switch button', { hasText: '编辑模式' }).click()
+await sleep(400)
+await page.locator('.bottom-actions .add-ms').first().click()
+await sleep(300)
+await page.locator('.dialog input').fill('测试里程碑')
+await page.locator('.dialog .btn.primary').click()
+await sleep(400)
+console.log('里程碑数:', await page.locator('.ms-name').allInnerTexts())
+await page.locator('.bottom-actions .add-ms').nth(1).click()
+await sleep(300)
+console.log('对话框可见:', await page.locator('.dialog').isVisible(), '| 字段数:', await page.locator('.dialog input').count(), '| select:', await page.locator('.dialog select').count())
+await page.locator('.dialog input').first().fill('冒烟测试执行项')
+const opts = await page.locator('.dialog select option').allInnerTexts()
+console.log('下拉选项:', opts)
+await page.locator('.dialog select').selectOption({ label: '里程碑 · 测试里程碑' })
+console.log('select 值:', await page.locator('.dialog select').inputValue(), '| 标题值:', await page.locator('.dialog input').first().inputValue())
+await page.locator('.dialog .btn.primary').click()
+await sleep(500)
+console.log('对话框仍可见:', await page.locator('.dialog').count() ? await page.locator('.dialog').isVisible() : false)
+console.log('toast:', await page.locator('.toast').innerText())
+const db = JSON.parse(readFileSync(join(userData, 'data', 'checkstep.json'), 'utf-8'))
+console.log('里程碑:', JSON.stringify(db.projects[0].milestones.map(m => ({ n: m.name, t: m.tasks.map(x => x.title) }))))
+await app.close()

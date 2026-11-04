@@ -1,0 +1,23 @@
+# 依赖与构建产物
+node_modules/
+out/
+dist/
+dist-rel*/
+dist-release/
+release/
+*.tsbuildinfo
+
+# 本地调试与截图产物
+preview/*.png
+tests/shot-*.png
+
+# 环境与编辑器
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# WorkBuddy 工作区数据
+.workbuddy/
