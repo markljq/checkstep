@@ -59,7 +59,7 @@ Check Step 是一款面向 **系统上线 / 割接 / 迁移** 场景的本地检
 
 ### 方式一：下载安装包（推荐）
 
-从 [Releases](../../releases) 下载最新 `CheckStep-Setup-x.x.x.exe`，双击安装（Windows 10/11 x64）。
+从 [Releases](https://github.com/markljq/checkstep/releases) 下载最新 `CheckStep-Setup-x.x.x.exe`，双击安装（Windows 10/11 x64）。
 
 - 安装时可选自定义目录
 - 自动创建桌面与开始菜单快捷方式

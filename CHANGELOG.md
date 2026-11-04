@@ -71,13 +71,13 @@
 - 项目 / 里程碑 / 执行项三层清单结构与拖拽排序
 - 本地 JSON 持久化（原子写入 + 损坏备份）、单实例锁
 
-[Unreleased]: https://github.com/<your-org>/checkstep/compare/v1.0.9...HEAD
-[1.0.9]: https://github.com/<your-org>/checkstep/compare/v1.0.8...v1.0.9
-[1.0.8]: https://github.com/<your-org>/checkstep/compare/v1.0.7...v1.0.8
-[1.0.7]: https://github.com/<your-org>/checkstep/compare/v1.0.6...v1.0.7
-[1.0.6]: https://github.com/<your-org>/checkstep/compare/v1.0.5...v1.0.6
-[1.0.5]: https://github.com/<your-org>/checkstep/compare/v1.0.4...v1.0.5
-[1.0.4]: https://github.com/<your-org>/checkstep/compare/v1.0.3...v1.0.4
-[1.0.3]: https://github.com/<your-org>/checkstep/compare/v1.0.2...v1.0.3
-[1.0.2]: https://github.com/<your-org>/checkstep/compare/v1.0.1...v1.0.2
-[1.0.1]: https://github.com/<your-org>/checkstep/releases/tag/v1.0.1
+[Unreleased]: https://github.com/markljq/checkstep/compare/v1.0.9...HEAD
+[1.0.9]: https://github.com/markljq/checkstep/compare/v1.0.8...v1.0.9
+[1.0.8]: https://github.com/markljq/checkstep/compare/v1.0.7...v1.0.8
+[1.0.7]: https://github.com/markljq/checkstep/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/markljq/checkstep/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/markljq/checkstep/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/markljq/checkstep/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/markljq/checkstep/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/markljq/checkstep/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/markljq/checkstep/releases/tag/v1.0.1
